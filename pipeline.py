@@ -14,6 +14,9 @@ import logging
 import sys
 from pathlib import Path
 from data_loaders import load_data
+from data_processor import process_data, create_cleaning_report
+
+
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +26,7 @@ def setup_logging(verbose=False):
     # Set up logging
     logging.basicConfig(
         level=logging.DEBUG if verbose == True else logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(message)s",
+        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
         datefmt="%H:%M:%S")
 
 
@@ -55,10 +58,9 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--format",
-        help="Output format: csv or json; default is csv",
-        choices=["csv", "json"], 
-        default="csv"
+        "--config",
+        required=True,
+        help="Path to the yaml configuration file"
     )
 
     args = parser.parse_args()
@@ -79,15 +81,38 @@ def validate_input(filepath):
 def main():
     """Main pipeline function."""
     args = parse_arguments()
-    setup_logging(verbose = args.verbose)
-    logger.debug(f"Arguments parsed: input={args.input}, output={args.output}")
+    setup_logging(verbose=args.verbose)
+    logger.debug(
+        f"Arguments parsed: input={args.input}, output={args.output}, config={args.config}"
+    )
+
     if validate_input(args.input) == False:
         sys.exit(1)
-    try:
-        data = load_data(args.input)
-    except ValueError:
+    if validate_input(args.config) == False:
         sys.exit(1)
 
+    try:
+        data = load_data(args.input)
+        config = load_data(args.config)
+    except ValueError as e:
+        logger.error(f"Failed to load file: {e}")
+        sys.exit(1)
+
+    cleaned = process_data(data, config)
+
+    report = create_cleaning_report(data, cleaned)
+
+    logger.info(
+        f"Processing complete: {report['rows_removed']} rows and "
+        f"{report['columns_removed']} columns removed."
+    )
+
+    cleaned.to_csv(args.output, index=False)
+    logger.info(f"Saved cleaned data to {args.output} ({len(cleaned)} rows).")
+
+    print("Cleaning report:")
+    for key, value in report.items():
+        print(f"  {key}: {value}")
 
 
 
