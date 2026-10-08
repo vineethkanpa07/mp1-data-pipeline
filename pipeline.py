@@ -13,21 +13,18 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from data_loaders import load_data
-from data_processor import process_data, create_cleaning_report
-
-
+from src import (
+    create_cleaning_report,
+    load_data,
+    process_data,
+    save_data,
+    setup_logging,
+    validate_dataframe,
+    validate_input,
+)
 
 
 logger = logging.getLogger(__name__)
-
-def setup_logging(verbose=False):
-    """Configure logging for the pipeline."""
-    # Set up logging
-    logging.basicConfig(
-        level=logging.DEBUG if verbose == True else logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-        datefmt="%H:%M:%S")
 
 
 def parse_arguments():
@@ -66,17 +63,6 @@ def parse_arguments():
     args = parser.parse_args()
 
     return args
-
-
-def validate_input(filepath):
-    """Check whether the input path exists and is a file."""
-    if Path(filepath).is_file() == True:
-        logger.info(f"Input file validated: {filepath}")
-        return True
-
-    if Path(filepath).is_file() == False:
-        logger.error(f"Input file not found: {filepath}")
-        return False
     
 def main():
     """Main pipeline function."""
@@ -98,23 +84,31 @@ def main():
         logger.error(f"Failed to load file: {e}")
         sys.exit(1)
 
-    cleaned = process_data(data, config)
+    required_columns = config["validation"]["required_columns"]
+    numeric_columns = config["validation"]["numeric_columns"]
 
-    report = create_cleaning_report(data, cleaned)
+    try:
+        validated = validate_dataframe(data, required_columns, numeric_columns)
+    except ValueError:
+        sys.exit(1)
+
+    logger.info(f"Validation complete: {len(data)} -> {len(validated)} rows")
+    
+    cleaned = process_data(validated, config)
+
+    report = create_cleaning_report(validated, cleaned)
 
     logger.info(
         f"Processing complete: {report['rows_removed']} rows and "
         f"{report['columns_removed']} columns removed."
     )
 
-    cleaned.to_csv(args.output, index=False)
-    logger.info(f"Saved cleaned data to {args.output} ({len(cleaned)} rows).")
+    output_path = save_data(cleaned, args.output)
+    logger.info(f"Saved cleaned data to {output_path} ({len(cleaned)} rows).")
 
     print("Cleaning report:")
     for key, value in report.items():
         print(f"  {key}: {value}")
-
-
 
 if __name__ == "__main__":
     main()
