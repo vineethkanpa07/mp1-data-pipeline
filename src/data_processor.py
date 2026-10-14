@@ -24,7 +24,7 @@ def handle_missing(df, axis="rows"):
         df = df.dropna(axis = 1)
         logger.debug(f"{og - len(df)} columns removed.")
     else:
-        logger.error(f"{axis} is an unsupported.")
+        logger.error(f"{axis} is an unsupported axis.")
         raise ValueError(f"{axis} is an unsupported axis.")
     return df
 

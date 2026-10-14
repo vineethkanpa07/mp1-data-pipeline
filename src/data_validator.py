@@ -17,6 +17,11 @@ def validate_dataframe(df, required_columns, numeric_columns):
             logger.error(f"Missing required column: {col}")
             raise ValueError(f"Missing required column:{col}")
 
+    for col in numeric_columns:
+        if col not in df.columns:
+            logger.error(f"Missing numeric column: {col}")
+            raise ValueError(f"Missing numeric column: {col}")
+
     original_count = len(df)
 
     for col in numeric_columns:
